@@ -1,3 +1,11 @@
+/*
+TODO LIST:
+1. Web sockets
+2. GET and POST not just GET
+3. More types in path_to_type
+4. Get a proxy implimented in a seprate git branch
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -74,6 +82,8 @@ char *path_to_code(char *path1) {
     return file_contents;
 }
 
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
+// TODO: make this a switch statement there faster
 char *path_to_type(char* path) {
     if(strcmp(&path[strlen(path)-5], ".html") == 0) {
         return "text/html";
@@ -83,6 +93,30 @@ char *path_to_type(char* path) {
         return "application/javascript";
     } else if(strcmp(&path[strlen(path)-3], ".ts") == 0) {
         return "application/typescript";
+    } else if(strcmp(&path[strlen(path)-4], ".png") == 0) {
+        return "image/png";
+    } else if(strcmp(&path[strlen(path)-4], ".jpg") == 0) {
+        return "image/jpg";
+    } else if(strcmp(&path[strlen(path)-5], ".jpeg") == 0) {
+        return "image/jpeg";
+    } else if(strcmp(&path[strlen(path)-4], ".gif") == 0) {
+        return "image/gif"; // idk if this is true
+    } else if(strcmp(&path[strlen(path)-4], ".svg") == 0) {
+        return "image/svg";
+    } else if(strcmp(&path[strlen(path)-4], ".mp4") == 0) {
+        return "video/mp4";
+    } else if(strcmp(&path[strlen(path)-4], ".mpv") == 0) {
+        return "video/mpv";
+    } else if(strcmp(&path[strlen(path)-5], ".woff") == 0) {
+        return "font/woff";
+    } else if(strcmp(&path[strlen(path)-4], ".ttf") == 0) {
+        return "font/ttf";
+    } else if(strcmp(&path[strlen(path)-4], ".otf") == 0) {
+        return "font/otf";
+    } else if(strcmp(&path[strlen(path)-4], ".mp3") == 0) {
+        return "audio/mp3";
+    } else if(strcmp(&path[strlen(path)-3], ".ogg") == 0) {
+        return "audio/ogg";
     } else {
         return "text/html";
     }
@@ -153,7 +187,7 @@ int main(int argc, char *argv[]) {
             buffer[received] = '\0';
 
             // print the path
-            char *path_start = strstr(buffer, "GET ");
+            char *path_start = strstr(buffer, "GET "); // TODO: put get/post/idk in request the type
             if(path_start != NULL) {
                 char *path_end = strchr(path_start+4, ' ');
                 if(path_end != NULL) {
