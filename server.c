@@ -8,10 +8,103 @@
 #include <netinet/ip.h>
 #include <netinet/ip.h>
 
-#define PORT 3000
 #define BUFFER_SIZE 1024
 
-int main(void) {
+char *path_to_code(char *path1) {
+    if(path1[strlen(path1) - 1] == '/') { strcat(path1, "index.html"); }
+    char path[sizeof("./public/")+sizeof(path1)] = "./public";
+    strncat(path, path1, strlen(path1));
+    printf("%s\n", path);
+
+    FILE *fptr;
+    fptr = fopen(path, "r");
+    char *file_contents;
+
+    // 404
+    if(fptr == NULL) { // checks if the files doesnt exist
+        FILE *fptr_404;
+        fptr_404 = fopen("./public/404.html", "r");
+
+        file_contents = NULL;
+        char buffer[512];
+        size_t total_size = 0;
+
+        while(fgets(buffer, sizeof(buffer), fptr_404) != NULL) {
+            size_t len = strlen(buffer);
+            char *temp = realloc(file_contents, total_size + len + 1);
+            if(temp == NULL) {
+                perror("realloc failed :(\n");
+                fclose(fptr_404);
+                free(file_contents);
+                return NULL;
+            }
+
+            file_contents = temp;
+            strcpy(file_contents + total_size, buffer);
+            total_size += len;
+        }
+
+        fclose(fptr_404);
+        return file_contents;
+    } else {
+        file_contents = NULL;
+        char buffer[512];
+        size_t total_size = 0;
+
+        while(fgets(buffer, sizeof(buffer), fptr) != NULL) {
+            size_t len = strlen(buffer);
+            char *temp = realloc(file_contents, total_size + len + 1);
+            if(temp == NULL) {
+                perror("realloc failed :(\n");
+                fclose(fptr);
+                free(file_contents);
+                return NULL;
+            }
+
+            file_contents = temp;
+            strcpy(file_contents + total_size, buffer);
+            total_size += len;
+        }
+
+        fclose(fptr);
+        return file_contents;
+    }
+
+    fclose(fptr);
+    return file_contents;
+}
+
+char *path_to_type(char* path) {
+    if(strcmp(&path[strlen(path)-5], ".html") == 0) {
+        return "text/html";
+    } else if(strcmp(&path[strlen(path)-4], ".css") == 0) {
+        return "text/css";
+    } else if(strcmp(&path[strlen(path)-3], ".js") == 0) {
+        return "application/javascript";
+    } else if(strcmp(&path[strlen(path)-3], ".ts") == 0) {
+        return "application/typescript";
+    } else {
+        return "text/html";
+    }
+}
+
+typedef struct res_struct response;
+struct res_struct {
+    char *http_code;
+    char *http_type;
+    char *file_code;
+    size_t file_size;
+};
+
+typedef struct req_struct request;
+struct req_struct {
+    char *path;
+};
+
+int main(int argc, char *argv[]) {
+    if(argc < 2) { printf("No port inputed\n"); return -1;}
+    const int PORT = atoi(argv[1]);
+
     // create socket info stuff
     struct sockaddr_in server_info = {0};
     struct sockaddr client_info = {0};
@@ -52,8 +145,8 @@ int main(void) {
             return -1;
         }
 
-        // receive request
-        char *path;
+        // request
+        request req;
         char buffer[BUFFER_SIZE];
         ssize_t received = recv(cfd, buffer, sizeof(buffer) - 1, 0);
         if(received > 0) {
@@ -65,34 +158,34 @@ int main(void) {
                 char *path_end = strchr(path_start+4, ' ');
                 if(path_end != NULL) {
                     *path_end = '\0';
-                    path = path_start+4;
+                    req.path = path_start+4;
                 }
             }
         }
 
-        // Get res info then put it in a real http response
-        char res_body[BUFFER_SIZE];
-        strcpy(res_body, path);
-        char res_body_len[10];
-        snprintf(res_body_len, sizeof(res_body_len), "%lu", strlen(res_body));
-
-        char res_http_code[] = "200 OK";
-        char res_content_type[] = "text/plain";
+        // response
+        response res;
+        res.file_code = path_to_code(req.path);
+        res.file_size = strlen(res.file_code);
+        res.http_code = "200 OK"; // TODO: make function path_to_res_code(path)
+        res.http_type = path_to_type(req.path);
 
         char http_response[BUFFER_SIZE];
         snprintf(http_response, sizeof(http_response), "HTTP/1.1 %s\r\n"
-                                                    "Content-Type: %s\r\n"
-                                                    "Content-Length: %s\r\n"
-                                                    "\r\n"
-                                                    "%s",
-                                                    res_http_code,
-                                                    res_content_type,
-                                                    res_body_len,
-                                                    res_body);
-
+                                                   "Content-Type: %s\r\n"
+                                                   "Content-Length: %zu\r\n" // %zu for size_t type
+                                                   "\r\n"
+                                                   "%s",
+                                                   res.http_code,
+                                                   res.http_type,
+                                                   res.file_size,
+                                                   res.file_code);
 
         ssize_t sent = send(cfd, (void *)http_response, strlen(http_response), 0);
+
+        // Clean up
         close(cfd);
+        free(res.file_code);
     }
 
     // Cleanup
